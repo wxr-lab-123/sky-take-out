@@ -1,23 +1,43 @@
 package com.sky.service.impl;
 
+import com.sky.constant.JwtClaimsConstant;
 import com.sky.constant.MessageConstant;
+import com.sky.constant.PasswordConstant;
 import com.sky.constant.StatusConstant;
+import com.sky.context.BaseContext;
+import com.sky.dto.EmployeeDTO;
 import com.sky.dto.EmployeeLoginDTO;
 import com.sky.entity.Employee;
 import com.sky.exception.AccountLockedException;
 import com.sky.exception.AccountNotFoundException;
 import com.sky.exception.PasswordErrorException;
 import com.sky.mapper.EmployeeMapper;
+import com.sky.properties.JwtProperties;
 import com.sky.service.EmployeeService;
+import com.sky.utils.JwtUtil;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import org.apache.http.HttpResponse;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
 
     @Autowired
     private EmployeeMapper employeeMapper;
+    @Autowired
+    HttpServletRequest request;
+    @Autowired
+    JwtProperties jwtProperties;
 
     /**
      * 员工登录
@@ -53,6 +73,35 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         //3、返回实体对象
         return employee;
+    }
+
+    @Override
+    public void save(EmployeeDTO employeeDTO) {
+        Employee employee = new Employee();
+
+        //对象属性拷贝
+        BeanUtils.copyProperties(employeeDTO, employee);
+
+        //设置账号状态
+        employee.setStatus(StatusConstant.ENABLE);
+
+        //设置密码
+        employee.setPassword(DigestUtils.md5DigestAsHex(
+                PasswordConstant.DEFAULT_PASSWORD.getBytes()));
+        //设置时间
+        employee.setCreateTime(LocalDateTime.now());
+        employee.setUpdateTime(LocalDateTime.now());
+        //设置创建人
+        /*String jwt = request.getHeader("token");
+        Claims claims = JwtUtil.parseJWT(jwtProperties.getAdminSecretKey(),jwt);
+        long userid = ((Integer) claims.get(JwtClaimsConstant.EMP_ID)).longValue();*/
+        long userid = BaseContext.getCurrentId();
+        //ThreadLocal 每一个请求自动创建一个线程变量, 线程变量保存当前登录用户id,已经创建
+        //BaseContext类来封装线程变量, 获取当前登录用户id
+        employee.setCreateUser(userid);
+        employee.setUpdateUser( userid);
+
+        employeeMapper.insert(employee);
     }
 
 }
