@@ -1,33 +1,30 @@
 package com.sky.service.impl;
 
-import com.sky.constant.JwtClaimsConstant;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
 import com.sky.constant.PasswordConstant;
 import com.sky.constant.StatusConstant;
 import com.sky.context.BaseContext;
 import com.sky.dto.EmployeeDTO;
 import com.sky.dto.EmployeeLoginDTO;
+import com.sky.dto.EmployeePageQueryDTO;
 import com.sky.entity.Employee;
 import com.sky.exception.AccountLockedException;
 import com.sky.exception.AccountNotFoundException;
 import com.sky.exception.PasswordErrorException;
 import com.sky.mapper.EmployeeMapper;
 import com.sky.properties.JwtProperties;
+import com.sky.result.PageResult;
 import com.sky.service.EmployeeService;
-import com.sky.utils.JwtUtil;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import org.apache.http.HttpResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
@@ -103,5 +100,62 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         employeeMapper.insert(employee);
     }
+
+    /**
+     * 分页查询员工信息
+     *
+     * @param employeePageQueryDTO 员工分页查询条件对象，包含分页参数和查询条件
+     * @return PageResult 分页查询结果对象，包含员工信息列表和分页信息
+     */
+    @Override
+    public PageResult page(EmployeePageQueryDTO employeePageQueryDTO) {
+        PageHelper.startPage(employeePageQueryDTO.getPage(), employeePageQueryDTO.getPageSize());
+        Page<Employee> res = employeeMapper.page(employeePageQueryDTO);
+        PageResult pageResult = new PageResult(res.getTotal(), res.getResult());
+        return pageResult;
+    }
+
+    @Override
+    public void stautsUpdate(Integer status, long id) {
+        Employee employee = new Employee();
+        employee.setStatus(status);
+        employee.setId(id);
+        employeeMapper.Update(employee);
+    }
+
+    /**
+     * 根据员工ID获取员工信息
+     *
+     * @param id 员工ID
+     * @return 员工对象，其中密码字段被替换为掩码显示
+     */
+    @Override
+    public Employee getById(Long id) {
+        // 从数据库获取员工信息
+        Employee employee = employeeMapper.getById(id);
+        // 隐藏密码信息，避免敏感数据泄露
+        employee.setPassword("****");
+        return  employee;
+    }
+
+
+    /**
+     * 更新员工信息
+     * @param employeeDTO 员工数据传输对象，包含需要更新的员工信息
+     */
+    @Override
+    public void Update(EmployeeDTO employeeDTO) {
+       // 将DTO对象转换为实体对象
+       Employee employee = new Employee();
+       BeanUtils.copyProperties(employeeDTO, employee);
+
+       // 设置更新时间和更新人信息
+       employee.setUpdateTime(LocalDateTime.now());
+       employee.setUpdateUser(BaseContext.getCurrentId());
+
+       // 调用mapper执行更新操作
+       employeeMapper.Update(employee);
+    }
+
 
 }
